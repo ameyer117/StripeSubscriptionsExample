@@ -1,4 +1,5 @@
 import { httpRouter } from 'convex/server';
+import stripe from '../lib/stripe';
 import { httpAction } from './_generated/server';
 import { Webhook } from 'svix';
 import { WebhookEvent } from '@clerk/nextjs/server';
@@ -49,13 +50,20 @@ http.route({
         if (eventType === 'user.created') {
             const { id, email_addresses, first_name, last_name } = event.data;
             const email = email_addresses[0].email_address;
+            const name = `${first_name || ''} ${last_name || ''}`.trim();
 
             try {
-                // TODO: Create a stripe customer as well
+                const customer = await stripe.customers.create({
+                    email,
+                    name,
+                    metadata: { clerkId: id },
+                });
+
                 await ctx.runMutation(api.users.createUser, {
                     email,
-                    name: `${first_name || ''} ${last_name || ''}`.trim(),
+                    name,
                     clerkId: id,
+                    stripeCustomerId: customer.id,
                 });
             } catch (e) {
                 console.error('Failed to create user in Convex', e);
