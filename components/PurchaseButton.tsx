@@ -13,7 +13,7 @@ const PurchaseButton = ({ courseId }: { courseId: Id<'courses'> }) => {
     const { user } = useUser();
     const userData = useQuery(api.users.getUserByClerkId, user ? { clerkId: user?.id } : 'skip');
     const [isLoading, setIsLoading] = useState(false);
-    // const createCheckoutSession = useAction(api.stripe.createCheckoutSession);
+    const createCheckoutSession = useAction(api.stripe.createCheckoutSession);
 
     const userAccess = useQuery(
         api.users.getUserAccess,
@@ -29,12 +29,12 @@ const PurchaseButton = ({ courseId }: { courseId: Id<'courses'> }) => {
         if (!user) return toast.error('Please log in to purchase', { id: 'login-error' });
         setIsLoading(true);
         try {
-            // const { checkoutUrl } = await createCheckoutSession({ courseId });
-            // if (checkoutUrl) {
-            //     window.location.href = checkoutUrl;
-            // } else {
-            //     throw new Error('Failed to create checkout session');
-            // }
+            const { checkoutUrl } = await createCheckoutSession({ courseId });
+            if (checkoutUrl) {
+                window.location.href = checkoutUrl;
+            } else {
+                throw new Error('Failed to create checkout session');
+            }
         } catch (error: any) {
             if (error.message.includes('Rate limit exceeded')) {
                 toast.error("You've tried too many times. Please try again later.");
