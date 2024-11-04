@@ -1,3 +1,4 @@
+import PurchaseButton from '@/components/PurchaseButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,7 +48,7 @@ export default async function Home() {
                                 </Badge>
 
                                 <SignedIn>
-                                    <Button variant='outline'>Enroll</Button>
+                                    <PurchaseButton courseId={course._id} />
                                 </SignedIn>
 
                                 <SignedOut>
