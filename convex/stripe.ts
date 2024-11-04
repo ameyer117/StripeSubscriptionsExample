@@ -1,8 +1,8 @@
 import { ConvexError, v } from 'convex/values';
-import stripe from '../lib/stripe';
-import { api } from './_generated/api';
-import { action } from './_generated/server';
 import ratelimit from '../lib/ratelimit';
+import stripe from '../lib/stripe';
+import { action } from './_generated/server';
+import { api } from './_generated/api';
 
 export const createCheckoutSession = action({
     args: { courseId: v.id('courses') },
@@ -62,6 +62,53 @@ export const createCheckoutSession = action({
                 courseTitle: course.title,
                 courseImageUrl: course.imageUrl,
             },
+        });
+
+        return { checkoutUrl: session.url };
+    },
+});
+
+export const createProPlanCheckoutSession = action({
+    args: { planId: v.union(v.literal('month'), v.literal('year')) },
+    handler: async (ctx, args): Promise<{ checkoutUrl: string | null }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new ConvexError('Not authenticated');
+        }
+
+        const user = await ctx.runQuery(api.users.getUserByClerkId, { clerkId: identity.subject });
+        if (!user) {
+            throw new ConvexError('User not found');
+        }
+
+        // rate limit
+        const rateLimitKey = `pro-plan-rate-limit:${user._id}`;
+        const { success } = await ratelimit.limit(rateLimitKey);
+        if (!success) {
+            throw new Error(`Rate limit exceeded.`);
+        }
+
+        let priceId;
+        if (args.planId === 'month') {
+            priceId = process.env.STRIPE_MONTHLY_PRICE_ID;
+        } else if (args.planId === 'year') {
+            priceId = process.env.STRIPE_YEARLY_PRICE_ID;
+        }
+
+        console.log(priceId);
+
+        if (!priceId) {
+            throw new ConvexError('PriceId not provided');
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            customer: user.stripeCustomerId,
+            line_items: [{ price: priceId, quantity: 1 }],
+            mode: 'subscription',
+            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pro/success?session_id={CHECKOUT_SESSION_ID}&year=${args.planId === 'year'}`,
+            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pro`,
+
+            metadata: { userId: user._id, planId: args.planId },
         });
 
         return { checkoutUrl: session.url };
